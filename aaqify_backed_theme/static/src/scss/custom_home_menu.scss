@@ -1,0 +1,351 @@
+/* ==========================================================================
+   Odoo 18 Enterprise SaaS Home Dashboard & Navbar Theme
+   ========================================================================== */
+
+/* 1. Base Navbar Styling */
+.o_main_navbar,
+header.o_navbar {
+    --o-navbar-height: 46px;
+    height: var(--o-navbar-height);
+    background-color: #ffffff !important;
+    border-bottom: none;
+    box-shadow: none;
+    z-index: 1000;
+}
+
+.o_main_navbar .o_menu_brand,
+header.o_navbar .o_menu_brand {
+    color: #212529 !important;
+}
+
+.o_main_navbar .dropdown-toggle,
+.o_main_navbar .o_menu_sections a,
+.o_main_navbar .o_menu_sections .dropdown > a,
+.o_main_navbar .o_menu_sections .dropdown-toggle,
+header.o_navbar .dropdown-toggle,
+header.o_navbar .o_menu_sections a,
+header.o_navbar .o_menu_sections .dropdown > a,
+header.o_navbar .o_menu_sections .dropdown-toggle {
+    color: #212529 !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.o_main_navbar .o_menu_systray .o_mail_systray_dropdown_items .o_notification_counter,
+header.o_navbar .o_menu_systray .o_mail_systray_dropdown_items .o_notification_counter {
+    background: #dc3545 !important;
+    color: #ffffff !important;
+}
+
+/* 2. Floating Transparent Navbar (Only on Home Menu Dashboard) */
+body:has(.custom_home_menu_overlay) .o_main_navbar,
+body:has(.custom_home_menu_overlay) header.o_navbar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 46px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    z-index: 10000 !important;
+}
+
+body:has(.custom_home_menu_overlay) .o_main_navbar *,
+body:has(.custom_home_menu_overlay) header.o_navbar * {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+body:has(.custom_home_menu_overlay) .o_menu_sections,
+body:has(.custom_home_menu_overlay) .o_menu_brand {
+    display: none !important;
+}
+
+/* 3. Top-Left App Icon & Back Caret Toggle */
+.o_navbar_apps_menu .dropdown-menu {
+    display: none !important;
+}
+
+.custom_nav_brand_toggle {
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.custom_nav_brand_toggle .custom_back_caret {
+    font-size: 0.9rem;
+    line-height: 1;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-6px) scale(0.8);
+    transition: transform 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
+    margin-right: 2px;
+}
+
+.custom_nav_brand_toggle .custom_app_icon,
+.custom_nav_brand_toggle .o_app_icon {
+    width: 25px !important;
+    height: 25px !important;
+    max-width: 25px !important;
+    max-height: 25px !important;
+    object-fit: contain;
+    vertical-align: middle;
+    flex-shrink: 0;
+    transform: translateX(0);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Hover Interactions for Top-Left Toggle */
+.custom_nav_brand_toggle:hover .custom_back_caret {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0) scale(1);
+}
+
+.custom_nav_brand_toggle:hover .custom_app_icon,
+.custom_nav_brand_toggle:hover .o_app_icon {
+    transform: translateX(2px);
+    opacity: 0.95;
+}
+
+.o_navbar_apps_menu,
+.o_menu_toggle {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* 4. Apps Toggle Button (Enterprise Style) */
+.custom_home_menu_button {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-left: 6px;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    color: #495057 !important;
+    font-size: 20px;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.custom_home_menu_button .oi-apps {
+    font-size: 19px;
+    line-height: 1;
+}
+
+.custom_home_menu_button .custom_home_menu_current_app_icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.custom_home_menu_button:hover {
+    background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+.custom_home_menu_button:focus,
+.custom_home_menu_button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.12) !important;
+}
+
+body.o_custom_home_menu_shown .custom_home_menu_button {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    color: #212529 !important; /* Forces dark color on hover/active */
+    cursor: pointer;
+    z-index: 10001;
+}
+
+body.o_custom_home_menu_shown .custom_home_menu_button::after {
+    content: "\276F";
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 1;
+    color: #212529 !important; /* Dark black/grey chevron */
+}
+
+/* 5. Header Navigation Controls (Forward Button) */
+.custom_home_header_bar {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    z-index: 10000;
+}
+
+.custom_forward_btn {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    border: none;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.custom_forward_btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+/* 6. Fullscreen Background Overlay */
+.custom_home_menu_overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('/aaqify_backed_theme/static/description/background-light.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding-top: 80px;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.custom_home_menu_container {
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    padding: 0 20px;
+    margin: 0 auto;
+}
+
+/* 7. Enterprise Grid & App Cards */
+.custom_home_menu_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 36px 16px;
+    justify-items: center;
+    align-items: start;
+}
+
+.custom_home_menu_app_card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 70px;
+    background: transparent !important;
+    border: none !important;
+    text-decoration: none !important;
+    transition: transform 0.15s ease-in-out;
+    cursor: pointer;
+}
+
+.custom_home_menu_app_card:hover {
+    transform: translateY(-4px);
+    text-decoration: none !important;
+}
+
+.custom_home_menu_app_card:hover .custom_home_menu_app_icon {
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18), 0 4px 8px rgba(0, 0, 0, 0.10) !important;
+}
+
+.custom_home_menu_app_icon {
+    width: 70px;
+    height: 70px;
+    background: #ffffff !important;
+    border-radius: 7px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.custom_home_menu_app_icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.custom_home_menu_app_icon i {
+    font-size: 38px;
+    color: #714B67;
+}
+
+.custom_home_menu_app_name {
+    font-size: 12.5px;
+    text-align: center;
+    line-height: 1.25;
+    color: #374151;
+    word-break: normal;
+    white-space: normal;
+    max-width: 100%;
+}
+
+/* 8. Mobile Responsiveness */
+@media (max-width: 768px) {
+    body:not(.o_custom_home_menu_shown) .custom_home_menu_button .oi-apps {
+        display: inline-block !important;
+        width: 22px !important;
+        height: 22px !important;
+        font-size: 0 !important;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpath stroke='%23495057' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2.5' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E") !important;
+        background-repeat: no-repeat !important;
+        background-position: center !important;
+        background-size: contain !important;
+    }
+
+    body:not(.o_custom_home_menu_shown) .custom_home_menu_button .oi-apps::before {
+        display: none !important;
+    }
+
+    .o_menu_toggle, 
+    .o_navbar_breadcrumbs { 
+        color: #714b67 !important; 
+    }
+
+    .custom_home_menu_overlay {
+        padding-top: 60px;
+    }
+
+    .custom_home_menu_grid {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 24px 12px;
+    }
+
+    .custom_home_menu_app_card {
+        width: 90px;
+    }
+
+    .custom_home_menu_app_icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 5px;
+        padding: 8px;
+    }
+
+    .custom_home_menu_app_name {
+        font-size: 11px;
+    }
+}
