@@ -29,5 +29,5 @@
     'application': True,
     'price': 0.00,
     'currency': 'USD',
-    'images': ['static/description/main_screenshot.png'],
+    'images': ['static/description/main_screenshot.gif'],
 }
