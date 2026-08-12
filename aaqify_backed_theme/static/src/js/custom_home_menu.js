@@ -3,7 +3,6 @@
 import { NavBar } from "@web/webclient/navbar/navbar";
 import { patch } from "@web/core/utils/patch";
 import { onMounted, onWillUnmount } from "@odoo/owl";
-import { router } from "@web/core/browser/router";
 
 patch(NavBar.prototype, {
     setup() {
@@ -13,229 +12,39 @@ patch(NavBar.prototype, {
             this.state.isCustomHomeMenuOpen = false;
         }
 
-        this.customNavHistory = [];
-        this._lastTrackedAppId = null;
-
         this._onCustomHomeMenuKeydown = this.onCustomHomeMenuKeydown.bind(this);
-        this._onActionManagerUpdated = this.onActionManagerUpdated.bind(this);
-        this._onTopLeftClick = this.onTopLeftClick.bind(this);
-        this._onHomeForwardClick = this.onHomeForwardClick.bind(this);
-        this._onGlobalAppsMenuClick = this.onGlobalAppsMenuClick.bind(this);
+        this._onGlobalClick = this.onGlobalClick.bind(this);
+        this._onPopState = this.onPopState.bind(this);
+        this._onRouteChange = this.onRouteChange.bind(this);
 
         onMounted(() => {
             this.renderCustomOverlay();
-            this.setupTopLeftAppIconAndCaret();
-
+            this.bindBrandClick();
             document.addEventListener("keydown", this._onCustomHomeMenuKeydown);
-            
-            // Intercept clicks on All Apps / Hamburger toggle globally
-            document.addEventListener("click", this._onGlobalAppsMenuClick, true);
-
-            if (this.env.bus) {
-                this.env.bus.addEventListener("ACTION_MANAGER:UI-UPDATED", this._onActionManagerUpdated);
-            }
-
-            this.trackCurrentAppIfChanged();
+            document.addEventListener("click", this._onGlobalClick);
+            window.addEventListener("popstate", this._onPopState);
+            /* Odoo's router emits ROUTE_CHANGE on its main bus whenever the
+               current route changes (back/forward navigation, command palette
+               navigation, app switches, etc). This is the hook we need to keep
+               the custom overlay in sync with the real URL/view, instead of
+               only reacting to clicks we generate ourselves. */
+            this.env.bus.addEventListener("ROUTE_CHANGE", this._onRouteChange);
             this.restoreCustomHomeMenuOnRefresh();
         });
 
         onWillUnmount(() => {
             document.removeEventListener("keydown", this._onCustomHomeMenuKeydown);
-            document.removeEventListener("click", this._onGlobalAppsMenuClick, true);
-            if (this.env.bus) {
-                this.env.bus.removeEventListener("ACTION_MANAGER:UI-UPDATED", this._onActionManagerUpdated);
-            }
-            this.detachTopLeftButtonListeners();
+            document.removeEventListener("click", this._onGlobalClick);
+            window.removeEventListener("popstate", this._onPopState);
+            this.env.bus.removeEventListener("ROUTE_CHANGE", this._onRouteChange);
         });
     },
 
-    // ------------------------------------------------------------------
-    // Global All Apps Interceptor
-    // ------------------------------------------------------------------
-
-    onGlobalAppsMenuClick(ev) {
-        // Intercept clicks on All Apps button, navbar toggles, or app icons
-        const appsToggleTarget = ev.target.closest(
-            ".o_navbar_apps_menu, .o_menu_toggle, .o_home_menu_icon, .custom_home_menu_button"
-        );
-
-        if (appsToggleTarget) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            ev.stopImmediatePropagation();
-
-            // Close native dropdowns if open
-            const openDropdown = document.querySelector(".dropdown-menu.show");
-            if (openDropdown) {
-                openDropdown.classList.remove("show");
-            }
-
+    toggleCustomHomeMenu() {
+        if (this.state.isCustomHomeMenuOpen) {
+            this.closeCustomHomeMenu();
+        } else {
             this.openCustomHomeMenu();
-        }
-    },
-
-    // ------------------------------------------------------------------
-    // Dynamic App Icon / Back Caret Logic
-    // ------------------------------------------------------------------
-
-    getTopLeftButton() {
-        return document.querySelector(".o_navbar_apps_menu, .o_menu_toggle, .o_home_menu_icon, .o_navbar_apps_menu > a");
-    },
-
-    getHomeForwardButton() {
-        return document.getElementById("custom_home_forward_btn");
-    },
-
-    setupTopLeftAppIconAndCaret() {
-        const btn = this.getTopLeftButton();
-        if (!btn) return;
-
-        btn.removeAttribute("data-bs-toggle");
-        btn.removeAttribute("data-toggle");
-
-        const openDropdown = document.querySelector(".o_navbar_apps_menu .dropdown-menu, .o_navbar_apps_menu_menu");
-        if (openDropdown) {
-            openDropdown.style.setProperty("display", "none", "important");
-        }
-
-        let currentApp = null;
-        try {
-            currentApp = this.menuService.getCurrentApp();
-        } catch {
-            currentApp = null;
-        }
-
-        const appIconHtml = currentApp && currentApp.webIconData
-            ? `<img src="${currentApp.webIconData}" class="o_app_icon custom_app_icon" alt=""/>`
-            : `<i class="oi oi-apps custom_app_icon"></i>`;
-
-        btn.innerHTML = `
-            <div class="custom_nav_brand_toggle">
-                <i class="oi oi-chevron-left custom_back_caret" title="Home Menu"></i>
-                ${appIconHtml}
-            </div>
-        `;
-
-        btn.removeEventListener("click", this._onTopLeftClick, true);
-        btn.addEventListener("click", this._onTopLeftClick, true);
-    },
-
-    detachTopLeftButtonListeners() {
-        const btn = this.getTopLeftButton();
-        if (btn) {
-            btn.removeEventListener("click", this._onTopLeftClick, true);
-        }
-    },
-
-    onTopLeftClick(ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        ev.stopImmediatePropagation();
-
-        const dropdownMenu = document.querySelector(".dropdown-menu.show");
-        if (dropdownMenu) {
-            dropdownMenu.classList.remove("show");
-        }
-
-        this.openCustomHomeMenu();
-    },
-
-    onHomeForwardClick(ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        if (this.customNavHistory.length > 0) {
-            const lastApp = this.customNavHistory[this.customNavHistory.length - 1];
-            if (lastApp && lastApp.app) {
-                this.closeCustomHomeMenu(false);
-                this.execAppNavigation(lastApp.app);
-            }
-        }
-    },
-
-    updateNavButtonsVisibility() {
-    const btn = this.getTopLeftButton();
-    const forwardBtn = this.getHomeForwardButton();
-    const breadcrumbs = document.querySelector(".o_breadcrumb, .o_navbar_breadcrumbs, .o_menu_brand");
-
-    if (this.state.isCustomHomeMenuOpen) {
-        // ON HOME DASHBOARD - Hide breadcrumbs/title
-        if (btn) btn.style.setProperty("display", "none", "important");
-        if (breadcrumbs) breadcrumbs.style.setProperty("display", "none", "important");
-
-        if (forwardBtn) {
-            if (this.customNavHistory.length > 0) {
-                forwardBtn.style.setProperty("display", "flex", "important");
-            } else {
-                forwardBtn.style.setProperty("display", "none", "important");
-            }
-        }
-    } else {
-        // INSIDE MODULE / APP - Show breadcrumbs/title
-        if (forwardBtn) forwardBtn.style.setProperty("display", "none", "important");
-
-        if (btn) {
-            btn.style.removeProperty("display");
-        }
-        if (breadcrumbs) {
-            breadcrumbs.style.removeProperty("display");
-        }
-    }
-},
-
-    // ------------------------------------------------------------------
-    // History & Navigation Controls
-    // ------------------------------------------------------------------
-
-    onActionManagerUpdated() {
-        if (this.state.isCustomHomeMenuOpen && window.location.pathname !== "/odoo") {
-            this.closeCustomHomeMenu(false);
-        }
-        this.trackCurrentAppIfChanged();
-        this.setupTopLeftAppIconAndCaret();
-        this.updateNavButtonsVisibility();
-    },
-
-    trackCurrentAppIfChanged() {
-        let currentApp = null;
-        try {
-            currentApp = this.menuService.getCurrentApp();
-        } catch {
-            currentApp = null;
-        }
-
-        if (!currentApp) {
-            this.updateNavButtonsVisibility();
-            return;
-        }
-
-        if (currentApp.id === this._lastTrackedAppId) {
-            this.updateNavButtonsVisibility();
-            return;
-        }
-        this._lastTrackedAppId = currentApp.id;
-
-        const lastEntry = this.customNavHistory[this.customNavHistory.length - 1];
-        if (lastEntry && lastEntry.id === currentApp.id) {
-            this.updateNavButtonsVisibility();
-            return;
-        }
-
-        this.customNavHistory.push({ id: currentApp.id, app: currentApp });
-
-        if (this.customNavHistory.length > 30) {
-            this.customNavHistory.shift();
-        }
-
-        this.updateNavButtonsVisibility();
-    },
-
-    execAppNavigation(app) {
-        if (!app) return;
-        if (this.menuService.selectMenu) {
-            this.menuService.selectMenu(app);
-        } else if (this.onNavBarDropdownItemSelection) {
-            this.onNavBarDropdownItemSelection(app);
         }
     },
 
@@ -246,75 +55,163 @@ patch(NavBar.prototype, {
     restoreCustomHomeMenuOnRefresh() {
         const homeUrl = this.getCustomHomeMenuUrl();
         const currentPath = window.location.origin + window.location.pathname;
-        if (currentPath !== homeUrl) {
-            return;
-        }
 
-        setTimeout(() => {
-            this.state.isCustomHomeMenuOpen = true;
-            document.body.style.overflow = "hidden";
-            document.body.classList.add("o_custom_home_menu_shown");
+        if (currentPath === homeUrl || window.location.hash === "" || window.location.hash === "#") {
+            setTimeout(() => {
+                this.state.isCustomHomeMenuOpen = true;
+                document.body.classList.add("o_custom_home_menu_shown");
+                this.renderCustomOverlay();
+            }, 50);
+        }
+    },
+
+    /* Keep the overlay in sync whenever the URL actually changes to/away
+       from the home screen, regardless of what triggered the navigation
+       (browser back/forward, Ctrl+K command palette, breadcrumbs, etc).
+       This does NOT touch history itself - it only reconciles our overlay
+       state with whatever URL is already showing, so it never fights with
+       Odoo's own router. */
+    syncCustomHomeMenuWithUrl() {
+        const homeUrl = this.getCustomHomeMenuUrl();
+        const currentUrl = window.location.origin + window.location.pathname;
+
+        if (currentUrl === homeUrl) {
+            if (!this.state.isCustomHomeMenuOpen) {
+                this.state.isCustomHomeMenuOpen = true;
+                document.body.classList.add("o_custom_home_menu_shown");
+                this.renderCustomOverlay();
+            }
+        } else if (this.state.isCustomHomeMenuOpen) {
+            this.state.isCustomHomeMenuOpen = false;
+            document.body.classList.remove("o_custom_home_menu_shown");
             this.renderCustomOverlay();
-            this.updateNavButtonsVisibility();
-        }, 150);
+        }
+    },
+
+    onPopState() {
+        /* Fires on browser Back/Forward. */
+        this.syncCustomHomeMenuWithUrl();
+    },
+
+    onRouteChange() {
+        /* Fires whenever Odoo's router changes the current route, e.g. after
+           picking a result in the Ctrl+K command palette, clicking a
+           breadcrumb, or any programmatic navigation - not just Back/Forward. */
+        this.syncCustomHomeMenuWithUrl();
     },
 
     openCustomHomeMenu() {
         this.state.isCustomHomeMenuOpen = true;
-        document.body.style.overflow = "hidden";
         document.body.classList.add("o_custom_home_menu_shown");
 
-        if (window.location.pathname !== "/odoo") {
-            router.pushState({}, { replace: false });
-            if (router.navigate) {
-                router.navigate("/odoo");
-            }
+        const homeUrl = this.getCustomHomeMenuUrl();
+        if (window.location.href !== homeUrl) {
+            /* Remember where we came from so closeCustomHomeMenu() can
+               actually restore it - this was previously never set. */
+            this.customHomeMenuPreviousUrl = window.location.href;
+            window.history.pushState({ customHomeMenu: true }, "", homeUrl);
         }
 
         this.renderCustomOverlay();
-        this.updateNavButtonsVisibility();
     },
 
     closeCustomHomeMenu(restoreUrl = true) {
         this.state.isCustomHomeMenuOpen = false;
-        document.body.style.overflow = "";
         document.body.classList.remove("o_custom_home_menu_shown");
 
+        if (restoreUrl && this.customHomeMenuPreviousUrl) {
+            window.history.pushState({}, "", this.customHomeMenuPreviousUrl);
+        }
+
+        this.customHomeMenuPreviousUrl = null;
         this.renderCustomOverlay();
-        this.updateNavButtonsVisibility();
-    },
-
-    // ------------------------------------------------------------------
-    // Keybinds & Overlay Renderer
-    // ------------------------------------------------------------------
-
-    isBlockingUiOpen() {
-        return !!document.querySelector(".o_dialog, .modal.show, .o_command_palette");
     },
 
     onCustomHomeMenuKeydown(ev) {
+        if (!this.state.isCustomHomeMenuOpen) {
+            return;
+        }
+
         if (ev.key === "Escape") {
-            if (this.isBlockingUiOpen()) {
-                return;
+            ev.preventDefault();
+            this.closeCustomHomeMenu(false);
+        }
+    },
+
+    onGlobalClick(ev) {
+        /* Intercept 'All Apps' inside mobile sidebar drawer */
+        const allAppsBtn = ev.target.closest('.o_navbar_apps_menu button, [data-menu-xmlid], .o_apps_menu_button, .o_all_apps_btn, .o_menu_sections_toggle, .dropdown-item');
+        
+        if (allAppsBtn && (allAppsBtn.innerText.includes("All Apps") || allAppsBtn.querySelector('.fa-th, .oi-apps') || ev.target.classList.contains('oi-apps'))) {
+            ev.preventDefault();
+            ev.stopPropagation();
+
+            /* Properly close Odoo 18 Bootstrap Offcanvas drawer */
+            const offcanvasCloseBtn = document.querySelector('.offcanvas.show .btn-close');
+            if (offcanvasCloseBtn) {
+                // Mimic native close click
+                offcanvasCloseBtn.click(); 
+            } else {
+                // Fallback forceful removal
+                const activeDrawer = document.querySelector('.offcanvas.show, .o_navbar_mobile_sidebar.show, .o_burger_menu.show');
+                if (activeDrawer) {
+                    activeDrawer.classList.remove('show');
+                }
+                const backdrop = document.querySelector('.offcanvas-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                document.body.style.overflow = '';
             }
 
-            ev.preventDefault();
+            this.openCustomHomeMenu();
+        }
+    },
 
-            if (!this.state.isCustomHomeMenuOpen) {
-                this.openCustomHomeMenu();
-            } else if (this.customNavHistory.length > 0) {
-                const lastApp = this.customNavHistory[this.customNavHistory.length - 1];
-                if (lastApp && lastApp.app) {
-                    this.closeCustomHomeMenu(false);
-                    this.execAppNavigation(lastApp.app);
+    bindBrandClick() {
+        const brand = document.querySelector(".o_menu_brand");
+        if (brand) {
+            const currentApp = this.menuService.getCurrentApp();
+
+            /* Ensure app name is present if DOM cleared it */
+            if (currentApp && (!brand.innerText || brand.innerText.trim() === "")) {
+                brand.innerText = currentApp.name;
+            }
+
+            if (currentApp) {
+                const iconUrl = currentApp.webIconData
+                    ? currentApp.webIconData
+                    : (currentApp.webIcon ? currentApp.webIcon.replace(',', '/') : '');
+                
+                if (iconUrl) {
+                    let styleTag = document.getElementById("custom_menu_brand_style");
+                    if (!styleTag) {
+                        styleTag = document.createElement("style");
+                        styleTag.id = "custom_menu_brand_style";
+                        document.head.appendChild(styleTag);
+                    }
+                    styleTag.innerHTML = `@media (min-width: 769px) { .o_menu_brand::before { background-image: url('${iconUrl}') !important; } }`;
                 }
+            }
+
+            if (!brand.dataset.customBound) {
+                brand.dataset.customBound = "true";
+                brand.addEventListener("click", (e) => {
+                    /* Only trigger Home Menu overlay on Desktop */
+                    if (window.innerWidth > 768) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.openCustomHomeMenu();
+                    }
+                });
             }
         }
     },
 
     onAppClick(ev, app) {
         this.closeCustomHomeMenu(false);
-        this.execAppNavigation(app);
+        this.menuService.selectMenu(app);
+        setTimeout(() => this.bindBrandClick(), 100);
     },
 
     renderCustomOverlay() {
@@ -327,46 +224,38 @@ patch(NavBar.prototype, {
 
         overlayContainer.innerHTML = "";
         if (this.state.isCustomHomeMenuOpen) {
-            const overlayHtml = this.renderOverlayHTML();
-            overlayContainer.innerHTML = overlayHtml;
+            overlayContainer.innerHTML = this.renderOverlayHTML();
             this.attachOverlayEventListeners(overlayContainer);
         }
     },
 
     renderOverlayHTML() {
-        const apps = this.menuService.getApps() || [];
+        const apps = this.menuService.getApps();
         const appCards = apps
             .map((app) => {
-                const iconHtml = app.webIconData
-                    ? `<img src="${app.webIconData}" alt=""/>`
+                const iconUrl = app.webIconData
+                    ? app.webIconData
+                    : (app.webIcon ? app.webIcon.replace(',', '/') : '');
+
+                const iconHtml = iconUrl
+                    ? `<img src="${iconUrl}" alt="${app.name}"/>`
                     : `<i class="oi oi-apps"></i>`;
 
                 return `
-                <a href="${this.getMenuItemHref ? this.getMenuItemHref(app) : '#'}"
+                <a href="${this.getMenuItemHref(app)}"
                    class="custom_home_menu_app_card"
-                   data-menu-xmlid="${app.xmlid || ''}"
-                   data-section="${app.id}"
                    data-app-id="${app.id}">
                   <div class="custom_home_menu_app_icon">
                     ${iconHtml}
                   </div>
+                  <div class="custom_home_menu_app_name">${app.name}</div>
                 </a>
             `;
             })
             .join("");
 
-        const hasHistory = this.customNavHistory.length > 0;
-        const forwardBtnDisplay = hasHistory ? "flex" : "none";
-
         return `
             <div class="custom_home_menu_overlay">
-              <div class="custom_home_header_bar">
-                 <button id="custom_home_forward_btn" 
-                         class="btn custom_forward_btn" 
-                         style="display: ${forwardBtnDisplay} !important;">
-                    <i class="oi oi-chevron-right"></i>
-                 </button>
-              </div>
               <div class="custom_home_menu_container">
                 <div class="custom_home_menu_grid">
                   ${appCards}
@@ -377,26 +266,17 @@ patch(NavBar.prototype, {
     },
 
     attachOverlayEventListeners(container) {
-        const forwardBtn = container.querySelector("#custom_home_forward_btn");
-        if (forwardBtn) {
-            forwardBtn.addEventListener("click", this._onHomeForwardClick);
-        }
-
         const appCards = container.querySelectorAll(".custom_home_menu_app_card");
         appCards.forEach((card) => {
             card.addEventListener("click", (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const appId = parseInt(card.dataset.appId, 10);
+                const appId = parseInt(card.dataset.appId);
                 const app = this.menuService.getApps().find((a) => a.id === appId);
                 if (app) {
                     this.onAppClick(e, app);
                 }
             });
         });
-    },
-});
-
-patch(NavBar, {
-    template: "web.NavBar",
+    }
 });
