@@ -217,20 +217,22 @@ body.o_custom_home_menu_shown {
 
 .custom_home_menu_overlay {
     position: fixed;
-    top: 0;
+    top: 0; /* Extends behind navbar to top edge */
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #f8fafc;
-    background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
-    background-size: 24px 24px;
+    background-image: url('/aaqify_backed_theme/static/description/background-light.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     z-index: 100;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
     overflow-y: auto;
-    padding-top: 80px;
+    padding-top: 80px; /* Gives room for navbar icons at top */
+    animation: fadeIn 0.2s ease-in-out;
 }
 
 .custom_home_menu_container {
